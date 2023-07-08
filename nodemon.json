@@ -1,0 +1,5 @@
+{
+  "ext": "ts js",
+  "ignore": ["node_modules/"],
+  "exec": "ts-node-dev --respawn --transpile-only ./src/http_server/server.ts"
+}

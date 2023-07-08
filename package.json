@@ -3,16 +3,18 @@
   "version": "1.0.0",
   "description": "Template for the WebSocket remote control task",
   "main": "index.js",
-  "type": "module",
   "scripts": {
-    "start": "node ./index.js",
-    "start:dev": "nodemon ./index.js",
+    "start": "ts-node ./src/index.ts",
+    "start:dev": "nodemon .src/index.ts",
+    "start:devv": "nodemon --watch src --exec ts-node-dev ./src/index.ts",
+    "start:dev1": "nodemon src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Yuri Shpakouski",
   "keywords": [],
   "license": "ISC",
   "devDependencies": {
+    "@types/uuid": "^9.0.2",
     "cross-env": "^7.0.3",
     "dotenv": "^16.3.1",
     "eslint": "^8.44.0",
@@ -24,6 +26,8 @@
     "webpack": "^5.88.1"
   },
   "dependencies": {
+    "@types/node": "^20.4.1",
+    "http": "^0.0.1-security",
     "ws": "^8.13.0"
   }
 }
