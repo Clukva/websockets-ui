@@ -27,7 +27,6 @@ wsserver.on("connection", (ws: WebSocket) => {
 
     const { type, data, id } = JSON.parse(message);
     let { name, password } = JSON.parse(data);
-    console.log(data, name, password);
 
     if (type === "reg") {
       console.log(players);
@@ -46,7 +45,6 @@ wsserver.on("connection", (ws: WebSocket) => {
 
         sendMessage(ws, responce);
         console.log("Player name already exists");
-        console.log(responce);
 
         return;
       } else {
@@ -57,8 +55,8 @@ wsserver.on("connection", (ws: WebSocket) => {
           data: JSON.stringify({
             name: name,
             index: uuidv4(),
-            error: "false",
-            errorText: "",
+            error: false,
+            errorText: "Player already registred",
           }),
           id: 0,
         };
