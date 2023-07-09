@@ -5,8 +5,13 @@ interface Player {
   name: string;
   password: string;
 }
+interface Room {
+  players: [player1: string, player2?: string];
+  id: number;
+}
 
 const players: Player[] = [];
+const rooms: Room[] = [];
 
 function sendMessage(client: WebSocket, message: object) {
   client.send(JSON.stringify(message));
@@ -26,9 +31,9 @@ wsserver.on("connection", (ws: WebSocket) => {
     console.log(`Received message ${message}`);
 
     const { type, data, id } = JSON.parse(message);
-    let { name, password } = JSON.parse(data);
 
     if (type === "reg") {
+      let { name, password } = JSON.parse(data);
       console.log(players);
       if (checkPlayer(name)) {
         const index = players.findIndex((player) => player.name === name);
@@ -63,6 +68,34 @@ wsserver.on("connection", (ws: WebSocket) => {
         sendMessage(ws, responce);
         console.log("Player created");
       }
+    }
+
+    if (type === "create_room") {
+      if (rooms.length > 1 && rooms[rooms.length - 1].players.length < 2) {
+        const responce = {
+          type: "add_user_to_room",
+          data: JSON.stringify({
+            indexRoom: rooms.length - 1,
+          }),
+          id: 0,
+        };
+        sendMessage(ws, responce);
+        rooms[rooms.length - 1].players.push(name);
+      } else {
+        rooms.push({
+          players: [name],
+          id: rooms.length,
+        });
+        const responce = {
+          type: "add_user_to_room",
+          data: JSON.stringify({
+            indexRoom: rooms.length - 1,
+          }),
+          id: 0,
+        };
+        sendMessage(ws, responce);
+      }
+      console.log(rooms);
     }
   });
 });
