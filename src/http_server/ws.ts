@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from "uuid";
 interface Player {
   name: string;
   password: string;
+  id: string;
+  wins: number;
 }
 interface Room {
   players: [player1: string, player2?: string];
@@ -12,6 +14,8 @@ interface Room {
 
 const players: Player[] = [];
 const rooms: Room[] = [];
+const waitingList: WebSocket[] = [];
+const connectionIds: Map<WebSocket, string> = new Map();
 
 function sendMessage(client: WebSocket, message: object) {
   client.send(JSON.stringify(message));
@@ -36,7 +40,10 @@ wsserver.on("connection", (ws: WebSocket) => {
       let { name, password } = JSON.parse(data);
       console.log(players);
       if (checkPlayer(name)) {
-        const index = players.findIndex((player) => player.name === name);
+        const index = players.findIndex(
+          (player, password) =>
+            player.name === name && +player.password === password
+        );
         const responce = {
           type: "reg",
           data: JSON.stringify({
@@ -49,11 +56,17 @@ wsserver.on("connection", (ws: WebSocket) => {
         };
 
         sendMessage(ws, responce);
+
         console.log("Player name already exists");
 
         return;
       } else {
-        players.push(JSON.parse(data));
+        players.push({
+          name: name,
+          password: password,
+          id: uuidv4(),
+          wins: 0,
+        });
 
         const responce = {
           type: "reg",
@@ -66,36 +79,73 @@ wsserver.on("connection", (ws: WebSocket) => {
           id: 0,
         };
         sendMessage(ws, responce);
+
+        waitingList.push(ws);
+        connectionIds.set(ws, players[players.length - 1].id);
         console.log("Player created");
+        console.log(waitingList);
       }
     }
 
     if (type === "create_room") {
-      if (rooms.length > 1 && rooms[rooms.length - 1].players.length < 2) {
-        const responce = {
-          type: "add_user_to_room",
-          data: JSON.stringify({
-            indexRoom: rooms.length - 1,
-          }),
+      const playerIndex = waitingList.indexOf(ws);
+      const playerId = connectionIds.get(ws);
+      const playerName = players.find((player) => player.id === playerId)?.name;
+
+      waitingList.forEach((player) => {
+        const responsePlayer = {
+          type: "update_room",
+          data: JSON.stringify([
+            {
+              roomId: 6666,
+              roomUsers: [
+                {
+                  name: playerName,
+                  index: playerIndex,
+                },
+              ],
+            },
+          ]),
           id: 0,
         };
-        sendMessage(ws, responce);
-        rooms[rooms.length - 1].players.push(name);
-      } else {
-        rooms.push({
-          players: [name],
-          id: rooms.length,
-        });
-        const responce = {
-          type: "add_user_to_room",
-          data: JSON.stringify({
-            indexRoom: rooms.length - 1,
-          }),
+        sendMessage(player, responsePlayer);
+      });
+    }
+    if (type === "add_user_to_room") {
+      const indexRoom = 6666;
+
+      const responseAddToRoom = {
+        type: "add_user_to_room",
+        data: JSON.stringify({
+          indexRoom: indexRoom,
+        }),
+        id: 0,
+      };
+
+      sendMessage(ws, responseAddToRoom);
+
+      const playerIndex = waitingList.indexOf(ws);
+      const playerId = connectionIds.get(ws);
+      const playerName = players.find((player) => player.id === playerId)?.name;
+
+      waitingList.forEach((player) => {
+        const responsePlayer = {
+          type: "update_room",
+          data: JSON.stringify([
+            {
+              roomId: 6666,
+              roomUsers: [
+                {
+                  name: playerName,
+                  index: playerIndex,
+                },
+              ],
+            },
+          ]),
           id: 0,
         };
-        sendMessage(ws, responce);
-      }
-      console.log(rooms);
+        sendMessage(player, responsePlayer);
+      });
     }
   });
 });
