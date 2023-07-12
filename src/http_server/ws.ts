@@ -143,8 +143,8 @@ wsserver.on("connection", (ws: WebSocket) => {
               const responseCreateGame = {
                 type: "create_game",
                 data: JSON.stringify({
-                  idGame: 11,
-                  idPlayer: 11,
+                  idGame: indexRoom,
+                  idPlayer: id,
                 }),
                 id: 0,
               };
@@ -164,6 +164,40 @@ wsserver.on("connection", (ws: WebSocket) => {
           });
         }
       }
+    }
+
+    if (type === "add_ships") {
+      const playerId = connectionIds.get(ws);
+      console.log(`playerId ${playerId}`);
+      const { ships, indexPlayer } = JSON.parse(data);
+      const playerName = players.find((player) => player.id === playerId)?.name;
+
+      const roomIndex = rooms.findIndex((room) =>
+        room.roomUsers.some((user) => user.name === playerName)
+      );
+
+      const room = rooms[roomIndex];
+      const playerss = room.roomUsers;
+
+      if (playerss.length !== 2) {
+        console.log("Ошибка: Недостаточно игроков в комнате");
+        return;
+      }
+
+      playerss.forEach((player) => {
+        const userSocket = waitingList[player.index];
+        if (userSocket) {
+          const responseStartGame = {
+            type: "start_game",
+            data: JSON.stringify({
+              ships: ships,
+              currentPlayerIndex: player.index,
+            }),
+            id: 0,
+          };
+          sendMessage(userSocket, responseStartGame);
+        }
+      });
     }
   });
 });
