@@ -1,21 +1,6 @@
 import WebSocket from "ws";
 import { v4 as uuidv4 } from "uuid";
-
-interface Player {
-  name: string;
-  password: string;
-  id: string;
-  wins: number;
-}
-interface RoomUser {
-  name?: string;
-  index: number;
-}
-
-interface RoomData {
-  roomId: number;
-  roomUsers: RoomUser[];
-}
+import { Player, RoomUser, RoomData } from "./interfaces";
 
 const players: Player[] = [];
 const rooms: RoomData[] = [];
@@ -143,33 +128,41 @@ wsserver.on("connection", (ws: WebSocket) => {
           name: playerName,
           index: playerIndex,
         };
-        rooms[indexRoom].roomUsers.push(roomUser);
 
-        rooms[indexRoom].roomUsers.forEach((user) => {
-          const userSocket = waitingList[user.index];
-          if (userSocket) {
-            const responseCreateGame = {
-              type: "create_game",
-              data: JSON.stringify({
-                idGame: 11,
-                idPlayer: 11,
-              }),
+        const isItAlreadyInRoom = () =>
+          !rooms.some((room) =>
+            room.roomUsers.some((user) => user.name === playerName)
+          );
+
+        if (isItAlreadyInRoom()) {
+          rooms[indexRoom].roomUsers.push(roomUser);
+
+          rooms[indexRoom].roomUsers.forEach((user) => {
+            const userSocket = waitingList[user.index];
+            if (userSocket) {
+              const responseCreateGame = {
+                type: "create_game",
+                data: JSON.stringify({
+                  idGame: 11,
+                  idPlayer: 11,
+                }),
+                id: 0,
+              };
+              sendMessage(userSocket, responseCreateGame);
+            }
+          });
+
+          waitingList.forEach((player) => {
+            const responsePlayer = {
+              type: "update_room",
+              data: JSON.stringify(
+                rooms.filter((room) => room.roomUsers.length !== 2)
+              ),
               id: 0,
             };
-            sendMessage(userSocket, responseCreateGame);
-          }
-        });
-
-        waitingList.forEach((player) => {
-          const responsePlayer = {
-            type: "update_room",
-            data: JSON.stringify(
-              rooms.filter((room) => room.roomUsers.length !== 2)
-            ),
-            id: 0,
-          };
-          sendMessage(player, responsePlayer);
-        });
+            sendMessage(player, responsePlayer);
+          });
+        }
       }
     }
   });

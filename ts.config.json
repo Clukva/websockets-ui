@@ -6,6 +6,7 @@
     "resolveJsonModule": true,
     "outDir": "dist",
     "strict": true,
+    "allowImportingTsExtensions": true,
     "moduleResolution": "node"
   },
   "include": ["src"],
