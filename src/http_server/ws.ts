@@ -1,13 +1,15 @@
 import WebSocket from "ws";
 import { v4 as uuidv4 } from "uuid";
-import { Player, RoomUser, RoomData } from "./interfaces";
+import { Player, RoomUser, RoomData, Hits } from "./interfaces";
+import { turn } from "./turn";
 
 const players: Player[] = [];
 const rooms: RoomData[] = [];
 const waitingList: WebSocket[] = [];
 const connectionIds: Map<WebSocket, string> = new Map();
+const availableHits: Hits[] = [];
 
-function sendMessage(client: WebSocket, message: object) {
+export function sendMessage(client: WebSocket, message: object) {
   client.send(JSON.stringify(message));
 }
 const checkPlayer = (nam: string): boolean => {
@@ -53,6 +55,7 @@ wsserver.on("connection", (ws: WebSocket) => {
           password: password,
           id: uuidv4(),
           wins: 0,
+          ships: false,
         });
 
         const responce = {
@@ -168,9 +171,15 @@ wsserver.on("connection", (ws: WebSocket) => {
 
     if (type === "add_ships") {
       const playerId = connectionIds.get(ws);
-      console.log(`playerId ${playerId}`);
-      const { ships, indexPlayer } = JSON.parse(data);
+      const { gameId, ships, currentPlayerIndex } = JSON.parse(data);
       const playerName = players.find((player) => player.id === playerId)?.name;
+
+      const currentPlayer = players.find(
+        (player) => player.name === playerName
+      );
+      if (currentPlayer) {
+        currentPlayer.ships = true;
+      }
 
       const roomIndex = rooms.findIndex((room) =>
         room.roomUsers.some((user) => user.name === playerName)
@@ -180,24 +189,62 @@ wsserver.on("connection", (ws: WebSocket) => {
       const playerss = room.roomUsers;
 
       if (playerss.length !== 2) {
-        console.log("Ошибка: Недостаточно игроков в комнате");
         return;
       }
 
-      playerss.forEach((player) => {
-        const userSocket = waitingList[player.index];
-        if (userSocket) {
-          const responseStartGame = {
-            type: "start_game",
-            data: JSON.stringify({
-              ships: ships,
-              currentPlayerIndex: player.index,
-            }),
-            id: 0,
-          };
-          sendMessage(userSocket, responseStartGame);
+      const allPlayersReady = playerss.every(
+        (player) => players.find((p) => p.name === player.name)?.ships
+      );
+
+      if (allPlayersReady) {
+        playerss.forEach((player) => {
+          const userSocket = waitingList[player.index];
+          if (userSocket) {
+            const responseStartGame = {
+              type: "start_game",
+              data: JSON.stringify({
+                ships: ships,
+                currentPlayerIndex: player.index,
+              }),
+              id: 0,
+            };
+            sendMessage(userSocket, responseStartGame);
+            turn(userSocket, player.index);
+          }
+        });
+      }
+      /* console.log(currentPlayerIndex, ships); */
+      availableHits.push({ currentPlayerIndex: currentPlayerIndex });
+      interface arrShip {
+        position: { x: number; y: number };
+        direction: boolean;
+        type: "string";
+        length: number;
+      }
+      let arrShip: { x: number; y: number }[] = [];
+
+      ships.forEach((ship: arrShip) => {
+        if (ship.length === 1) {
+          arrShip.push(ship.position);
+        }
+        if (ship.length > 1 && ship.direction === false) {
+          for (let i = 0; i < ship.length; i++) {
+            arrShip.push({ x: ship.position.x + i, y: ship.position.y });
+          }
+        } else if (ship.length > 1 && ship.direction === true) {
+          for (let i = 0; i < ship.length; i++) {
+            arrShip.push({ x: ship.position.x, y: ship.position.y + i });
+          }
         }
       });
+      console.log(arrShip);
+
+      /* availableHits.push({
+        currentPlayerIndex: currentPlayerIndex,
+        position: {},
+      }); */
     }
   });
 });
+/* "{\"ships\":[{\"position\":{\"x\":5,\"y\":1},\"direction\":false,\"type\":\"huge\",\"length\":4},{\"position\":{\"x\":1,\"y\":8},\"direction\":false,\"type\":\"large\",\"length\":3},{\"position\":{\"x\":2,\"y\":0},\"direction\":true,\"type\":\"large\",\"length\":3},{\"position\":{\"x\":2,\"y\":6},\"direction\":false,\"type\":\"medium\",\"length\":2},{\"position\":{\"x\":3,\"y\":4},\"direction\":false,\"type\":\"medium\",\"length\":2},{\"position\":{\"x\":0,\"y\":4},\"direction\":false,\"type\":\"medium\",\"length\":2},{\"position\":{\"x\":6,\"y\":8},\"direction\":false,\"type\":\"small\",\"length\":1},{\"position\":{\"x\":6,\"y\":3},\"direction\":false,\"type\":\"small\",\"length\":1},{\"position\":{\"x\":7,\"y\":5},\"direction\":true,\"type\":\"small\",\"length\":1},{\"position\":{\"x\":8,\"y\":3},\"direction\":false,\"type\":\"small\",\"length\":1}],\"currentPlayerIndex\":2}"
+ */
