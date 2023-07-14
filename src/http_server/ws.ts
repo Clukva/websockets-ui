@@ -1,6 +1,13 @@
 import WebSocket from "ws";
 import { v4 as uuidv4 } from "uuid";
-import { Player, RoomUser, RoomData, Hits } from "./interfaces";
+import {
+  Player,
+  RoomUser,
+  RoomData,
+  Hits,
+  Position,
+  arrShip,
+} from "./interfaces";
 import { turn } from "./turn";
 
 const players: Player[] = [];
@@ -147,7 +154,7 @@ wsserver.on("connection", (ws: WebSocket) => {
                 type: "create_game",
                 data: JSON.stringify({
                   idGame: indexRoom,
-                  idPlayer: id,
+                  idPlayer: playerIndex,
                 }),
                 id: 0,
               };
@@ -171,7 +178,7 @@ wsserver.on("connection", (ws: WebSocket) => {
 
     if (type === "add_ships") {
       const playerId = connectionIds.get(ws);
-      const { gameId, ships, currentPlayerIndex } = JSON.parse(data);
+      const { gameId, ships, indexPlayer } = JSON.parse(data);
       const playerName = players.find((player) => player.id === playerId)?.name;
 
       const currentPlayer = players.find(
@@ -213,38 +220,43 @@ wsserver.on("connection", (ws: WebSocket) => {
           }
         });
       }
-      /* console.log(currentPlayerIndex, ships); */
-      availableHits.push({ currentPlayerIndex: currentPlayerIndex });
-      interface arrShip {
-        position: { x: number; y: number };
-        direction: boolean;
-        type: "string";
-        length: number;
-      }
-      let arrShip: { x: number; y: number }[] = [];
 
       ships.forEach((ship: arrShip) => {
-        if (ship.length === 1) {
-          arrShip.push(ship.position);
-        }
-        if (ship.length > 1 && ship.direction === false) {
+        /* availableHits.push({
+          currentPlayerIndex: indexPlayer,
+        }); */
+        /*   if (ship.length === 1) {
+          availableHits.push({
+            currentPlayerIndex: indexPlayer,
+            currentShip: [{ type: ship.type, position: [ship.position] }],
+          });
+        } */
+        if (ship.length > 0 && ship.direction === false) {
+          let arrHits: Position[] = [];
           for (let i = 0; i < ship.length; i++) {
-            arrShip.push({ x: ship.position.x + i, y: ship.position.y });
+            arrHits.push({ x: ship.position.x + i, y: ship.position.y });
           }
+          availableHits.push({
+            currentPlayerIndex: indexPlayer,
+            currentShip: [{ type: ship.type, position: [...arrHits] }],
+          });
         } else if (ship.length > 1 && ship.direction === true) {
+          let arrHits: Position[] = [];
           for (let i = 0; i < ship.length; i++) {
-            arrShip.push({ x: ship.position.x, y: ship.position.y + i });
+            arrHits.push({ x: ship.position.x, y: ship.position.y + i });
           }
+          availableHits.push({
+            currentPlayerIndex: indexPlayer,
+            currentShip: [{ type: ship.type, position: [...arrHits] }],
+          });
         }
       });
-      console.log(arrShip);
+      console.log(availableHits);
+      console.log(room.roomUsers);
 
-      /* availableHits.push({
-        currentPlayerIndex: currentPlayerIndex,
-        position: {},
-      }); */
+      availableHits.map(
+        (sh) => sh.currentShip?.map((sh) => console.log(sh.position))
+      );
     }
   });
 });
-/* "{\"ships\":[{\"position\":{\"x\":5,\"y\":1},\"direction\":false,\"type\":\"huge\",\"length\":4},{\"position\":{\"x\":1,\"y\":8},\"direction\":false,\"type\":\"large\",\"length\":3},{\"position\":{\"x\":2,\"y\":0},\"direction\":true,\"type\":\"large\",\"length\":3},{\"position\":{\"x\":2,\"y\":6},\"direction\":false,\"type\":\"medium\",\"length\":2},{\"position\":{\"x\":3,\"y\":4},\"direction\":false,\"type\":\"medium\",\"length\":2},{\"position\":{\"x\":0,\"y\":4},\"direction\":false,\"type\":\"medium\",\"length\":2},{\"position\":{\"x\":6,\"y\":8},\"direction\":false,\"type\":\"small\",\"length\":1},{\"position\":{\"x\":6,\"y\":3},\"direction\":false,\"type\":\"small\",\"length\":1},{\"position\":{\"x\":7,\"y\":5},\"direction\":true,\"type\":\"small\",\"length\":1},{\"position\":{\"x\":8,\"y\":3},\"direction\":false,\"type\":\"small\",\"length\":1}],\"currentPlayerIndex\":2}"
- */

@@ -17,9 +17,22 @@ export interface RoomData {
 
 export interface Hits {
   currentPlayerIndex: number;
+  currentShip?: currentShip[];
+}
+
+interface currentShip {
+  type?: string;
   position?: Position[];
 }
-interface Position {
+
+export interface Position {
   x: number;
   y: number;
+}
+
+export interface arrShip {
+  position: { x: number; y: number };
+  direction: boolean;
+  type: "string";
+  length: number;
 }
