@@ -6,6 +6,7 @@ import {
   RoomData,
   Hits,
   Position,
+  СurrentShip,
   arrShip,
 } from "./interfaces";
 import { turn } from "./turn";
@@ -221,42 +222,35 @@ wsserver.on("connection", (ws: WebSocket) => {
         });
       }
 
-      ships.forEach((ship: arrShip) => {
-        /* availableHits.push({
-          currentPlayerIndex: indexPlayer,
-        }); */
-        /*   if (ship.length === 1) {
-          availableHits.push({
-            currentPlayerIndex: indexPlayer,
-            currentShip: [{ type: ship.type, position: [ship.position] }],
-          });
-        } */
-        if (ship.length > 0 && ship.direction === false) {
-          let arrHits: Position[] = [];
-          for (let i = 0; i < ship.length; i++) {
-            arrHits.push({ x: ship.position.x + i, y: ship.position.y });
-          }
-          availableHits.push({
-            currentPlayerIndex: indexPlayer,
-            currentShip: [{ type: ship.type, position: [...arrHits] }],
-          });
-        } else if (ship.length > 1 && ship.direction === true) {
-          let arrHits: Position[] = [];
-          for (let i = 0; i < ship.length; i++) {
-            arrHits.push({ x: ship.position.x, y: ship.position.y + i });
-          }
-          availableHits.push({
-            currentPlayerIndex: indexPlayer,
-            currentShip: [{ type: ship.type, position: [...arrHits] }],
-          });
-        }
-      });
-      console.log(availableHits);
-      console.log(room.roomUsers);
-
-      availableHits.map(
-        (sh) => sh.currentShip?.map((sh) => console.log(sh.position))
+      const playerIndex = players.findIndex(
+        (player) => player.name === playerName
       );
+      let arrHits: СurrentShip[] = [];
+      let arrPosition: Position[] = [];
+
+      ships.forEach((ship: arrShip) => {
+        if (ship.length > 0 && ship.direction === false) {
+          for (let i = 0; i < ship.length; i++) {
+            arrPosition.push({ x: ship.position.x + i, y: ship.position.y });
+          }
+        } else if (ship.length > 0 && ship.direction === true) {
+          for (let i = 0; i < ship.length; i++) {
+            arrPosition.push({ x: ship.position.x, y: ship.position.y + i });
+          }
+        }
+        arrHits.push({
+          type: ship.type,
+          position: [...arrPosition],
+        });
+        arrPosition = [];
+      });
+      availableHits.push({
+        currentPlayerIndex: playerIndex,
+        currentShip: [...arrHits],
+      });
+      arrHits = [];
+
+      console.log(availableHits.map((sh) => sh));
     }
   });
 });
