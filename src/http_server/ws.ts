@@ -11,6 +11,7 @@ import {
 } from "./interfaces";
 import { turn } from "./turn";
 
+const firstTurn: number[] = [];
 const players: Player[] = [];
 const rooms: RoomData[] = [];
 const waitingList: WebSocket[] = [];
@@ -37,15 +38,11 @@ wsserver.on("connection", (ws: WebSocket) => {
     if (type === "reg") {
       let { name, password } = JSON.parse(data);
       if (checkPlayer(name)) {
-        const index = players.findIndex(
-          (player, password) =>
-            player.name === name && +player.password === password
-        );
         const responce = {
           type: "reg",
           data: JSON.stringify({
             name: name,
-            index: index,
+            index: players.length - 1,
             error: true,
             errorText: "Player name already exists",
           }),
@@ -70,7 +67,7 @@ wsserver.on("connection", (ws: WebSocket) => {
           type: "reg",
           data: JSON.stringify({
             name: name,
-            index: uuidv4(),
+            index: players.length - 1,
             error: false,
             errorText: "Player already registred",
           }),
@@ -131,7 +128,6 @@ wsserver.on("connection", (ws: WebSocket) => {
 
       const playerId = connectionIds.get(ws);
       const playerName = players.find((player) => player.id === playerId)?.name;
-      rooms[indexRoom].roomUsers.push();
 
       if (indexRoom !== -1) {
         const playerIndex = waitingList.indexOf(ws);
@@ -148,14 +144,15 @@ wsserver.on("connection", (ws: WebSocket) => {
         if (isItAlreadyInRoom()) {
           rooms[indexRoom].roomUsers.push(roomUser);
 
-          rooms[indexRoom].roomUsers.forEach((user) => {
+          rooms[indexRoom].roomUsers.forEach((user, index) => {
             const userSocket = waitingList[user.index];
+
             if (userSocket) {
               const responseCreateGame = {
                 type: "create_game",
                 data: JSON.stringify({
                   idGame: indexRoom,
-                  idPlayer: playerIndex,
+                  idPlayer: index === 0 ? 0 : 1,
                 }),
                 id: 0,
               };
@@ -181,6 +178,7 @@ wsserver.on("connection", (ws: WebSocket) => {
       const playerId = connectionIds.get(ws);
       const { gameId, ships, indexPlayer } = JSON.parse(data);
       const playerName = players.find((player) => player.id === playerId)?.name;
+      firstTurn.push(indexPlayer);
 
       const currentPlayer = players.find(
         (player) => player.name === playerName
@@ -217,7 +215,7 @@ wsserver.on("connection", (ws: WebSocket) => {
               id: 0,
             };
             sendMessage(userSocket, responseStartGame);
-            turn(userSocket, player.index);
+            turn(waitingList[player.index], firstTurn[0]);
           }
         });
       }
@@ -249,8 +247,128 @@ wsserver.on("connection", (ws: WebSocket) => {
         currentShip: [...arrHits],
       });
       arrHits = [];
+    }
 
-      console.log(availableHits.map((sh) => sh));
+    if (type === "attack") {
+      const { gameId, x, y, indexPlayer } = JSON.parse(data);
+
+      const roomIndex = Number(gameId);
+
+      const returnStatusField = (x: number, y: number, indexPlayer: number) => {
+        const nextPlayerIndex = (indexPlayer + 1) % 2;
+        console.log(indexPlayer, nextPlayerIndex);
+
+        const hit = availableHits.find(
+          (hit) =>
+            hit.currentPlayerIndex === nextPlayerIndex &&
+            hit.currentShip?.some(
+              (ship) => ship.position?.some((pos) => pos.x === x && pos.y === y)
+            )
+        );
+
+        if (hit) {
+          const ship = hit.currentShip?.find(
+            (ship) => ship.position?.some((pos) => pos.x === x && pos.y === y)
+          );
+
+          if (ship && ship.position!.length > 1) {
+            const hitIndex = availableHits.findIndex(
+              (hit) =>
+                hit.currentPlayerIndex === nextPlayerIndex &&
+                hit.currentShip?.some(
+                  (ship) =>
+                    ship.position?.some((pos) => pos.x === x && pos.y === y)
+                )
+            );
+
+            if (hitIndex !== -1) {
+              const hit = availableHits[hitIndex];
+
+              if (hit.currentShip !== undefined) {
+                const shipIndex = hit.currentShip.findIndex(
+                  (ship) =>
+                    ship.position?.some((pos) => pos.x === x && pos.y === y)
+                );
+
+                if (shipIndex !== -1) {
+                  const ship = hit.currentShip[shipIndex];
+
+                  if (ship.position !== undefined) {
+                    const positionIndex = ship.position.findIndex(
+                      (pos) => pos.x === x && pos.y === y
+                    );
+
+                    if (positionIndex !== -1) {
+                      ship.position.splice(positionIndex, 1);
+
+                      if (ship.position.length === 0) {
+                        hit.currentShip.splice(shipIndex, 1);
+
+                        if (hit.currentShip.length === 0) {
+                          availableHits.splice(hitIndex, 1);
+                        }
+
+                        return "shot";
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            return "shot";
+          } else if (ship && ship.position!.length === 1) {
+            return "killed";
+          }
+        }
+
+        return "miss";
+      };
+
+      let stratusfield = returnStatusField(x, y, indexPlayer);
+
+      const responseAttack = {
+        type: "attack",
+        data: JSON.stringify({
+          position: {
+            x: x,
+            y: y,
+          },
+          currentPlayer: indexPlayer,
+          status: stratusfield,
+        }),
+        id: 0,
+      };
+
+      if (
+        roomIndex !== undefined &&
+        roomIndex >= 0 &&
+        roomIndex < rooms.length
+      ) {
+        const room = rooms[roomIndex];
+        const playersInRoom = room.roomUsers;
+
+        // Get the current player index
+        const currentPlayerIndex = playersInRoom.findIndex(
+          (player) => player.index === indexPlayer
+        );
+
+        // Determine the next player's index for the turn
+        const nextPlayerIndex = (currentPlayerIndex + 1) % playersInRoom.length;
+
+        playersInRoom.forEach((player: RoomUser) => {
+          const userSocket = waitingList[player.index];
+
+          if (userSocket) {
+            sendMessage(userSocket, responseAttack);
+
+            if (player.index === playersInRoom[nextPlayerIndex].index) {
+              // It's the next player's turn
+              turn(userSocket, player.index);
+            }
+          }
+        });
+      }
     }
   });
 });
