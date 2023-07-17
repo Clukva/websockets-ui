@@ -348,26 +348,35 @@ wsserver.on("connection", (ws: WebSocket) => {
         const room = rooms[roomIndex];
         const playersInRoom = room.roomUsers;
 
-        // Get the current player index
         const currentPlayerIndex = playersInRoom.findIndex(
           (player) => player.index === indexPlayer
         );
 
-        // Determine the next player's index for the turn
-        const nextPlayerIndex = (currentPlayerIndex + 1) % playersInRoom.length;
+        const nextPlayer = (currentPlayerIndex + 1) % playersInRoom.length;
 
-        playersInRoom.forEach((player: RoomUser) => {
+        const sendAttackToPlayer = (player: RoomUser) => {
           const userSocket = waitingList[player.index];
-
           if (userSocket) {
             sendMessage(userSocket, responseAttack);
-
-            if (player.index === playersInRoom[nextPlayerIndex].index) {
-              // It's the next player's turn
-              turn(userSocket, player.index);
-            }
           }
+        };
+
+        /*     const sendTurnToPlayer = (player: RoomUser) => {
+          const userSocket = waitingList[player.index];
+          if (userSocket) {
+            turn(userSocket, player.index);
+          }
+        }; */
+
+        playersInRoom.forEach((player: RoomUser) => {
+          sendAttackToPlayer(player);
+          const userSocket = waitingList[player.index];
+          const nextPlayerIndex = playersInRoom[nextPlayer].index;
+          turn(userSocket, nextPlayerIndex);
         });
+        const nextPlayerIndex = playersInRoom[nextPlayer].index;
+        const userSocketNext = waitingList[nextPlayerIndex];
+        turn(userSocketNext, nextPlayerIndex);
       }
     }
   });
