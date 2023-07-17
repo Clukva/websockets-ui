@@ -10,7 +10,11 @@ import {
   arrShip,
 } from "./interfaces";
 import { turn } from "./turn";
+import { updateWinners } from "./updateWinners";
 
+import { finish, checkEmptyHits } from "./finish";
+
+const winners: [string, number][] = [];
 const firstTurn: number[] = [];
 const players: Player[] = [];
 const rooms: RoomData[] = [];
@@ -361,19 +365,32 @@ wsserver.on("connection", (ws: WebSocket) => {
           }
         };
 
-        /*     const sendTurnToPlayer = (player: RoomUser) => {
-          const userSocket = waitingList[player.index];
-          if (userSocket) {
-            turn(userSocket, player.index);
-          }
-        }; */
-
         playersInRoom.forEach((player: RoomUser) => {
           sendAttackToPlayer(player);
           const userSocket = waitingList[player.index];
           const nextPlayerIndex = playersInRoom[nextPlayer].index;
           turn(userSocket, nextPlayerIndex);
         });
+
+        if (checkEmptyHits(availableHits, indexPlayer)) {
+          finish(ws, indexPlayer);
+          const currentPlayerName = playersInRoom.find(
+            (p) => p.index === indexPlayer
+          )?.name;
+          if (currentPlayerName) {
+            let currentPlayer = winners.find(
+              (win) => win[0] === currentPlayerName
+            );
+            if (currentPlayer) {
+              currentPlayer[1] = Number(currentPlayer[1]) + 1;
+            } else {
+              currentPlayer = [currentPlayerName, 1];
+              winners.push(currentPlayer);
+            }
+            updateWinners(ws, currentPlayerName, currentPlayer[1]);
+          }
+        }
+
         const nextPlayerIndex = playersInRoom[nextPlayer].index;
         const userSocketNext = waitingList[nextPlayerIndex];
         turn(userSocketNext, nextPlayerIndex);
